@@ -11,7 +11,6 @@
   <img src="https://img.shields.io/badge/Swift-F05138?logo=swift&logoColor=white" alt="Swift">
   <img src="https://img.shields.io/badge/node-24-339933?logo=nodedotjs&logoColor=white" alt="Node 24">
   <img src="https://img.shields.io/badge/dependencies-0-brightgreen" alt="Dependencies: 0">
-  <a href="https://github.com/zazencodes/tierlist/commits/main"><img src="https://img.shields.io/github/last-commit/zazencodes/tierlist" alt="Last commit"></a>
 </p>
 
 <p align="center">

@@ -4,6 +4,31 @@
 
 # Tier List ZC
 
+<p align="center">
+  <a href="https://github.com/zazencodes/tierlist/releases/latest"><img src="https://img.shields.io/github/v/release/zazencodes/tierlist" alt="Latest release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPLv3-blue" alt="License: GPLv3"></a>
+  <img src="https://img.shields.io/badge/platform-macOS%2014%2B-lightgrey?logo=apple" alt="Platform: macOS 14+">
+  <img src="https://img.shields.io/badge/Swift-F05138?logo=swift&logoColor=white" alt="Swift">
+  <img src="https://img.shields.io/badge/node-24-339933?logo=nodedotjs&logoColor=white" alt="Node 24">
+  <img src="https://img.shields.io/badge/dependencies-0-brightgreen" alt="Dependencies: 0">
+  <a href="https://github.com/zazencodes/tierlist/stargazers"><img src="https://img.shields.io/github/stars/zazencodes/tierlist?style=flat" alt="GitHub stars"></a>
+  <a href="https://github.com/zazencodes/tierlist/commits/main"><img src="https://img.shields.io/github/last-commit/zazencodes/tierlist" alt="Last commit"></a>
+  <a href="https://github.com/zazencodes/tierlist/issues"><img src="https://img.shields.io/github/issues/zazencodes/tierlist" alt="Open issues"></a>
+  <a href="https://github.com/zazencodes/tierlist/pulls"><img src="https://img.shields.io/badge/PRs-welcome-brightgreen" alt="PRs welcome"></a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/zazencodes/tierlist/forks"><img src="https://img.shields.io/github/forks/zazencodes/tierlist?style=flat" alt="GitHub forks"></a>
+  <a href="https://github.com/zazencodes/tierlist/watchers"><img src="https://img.shields.io/github/watchers/zazencodes/tierlist?style=flat" alt="GitHub watchers"></a>
+  <a href="https://github.com/zazencodes/tierlist/graphs/contributors"><img src="https://img.shields.io/github/contributors/zazencodes/tierlist" alt="Contributors"></a>
+  <a href="https://github.com/zazencodes/tierlist/graphs/commit-activity"><img src="https://img.shields.io/github/commit-activity/m/zazencodes/tierlist" alt="Commit activity"></a>
+  <img src="https://img.shields.io/github/languages/top/zazencodes/tierlist" alt="Top language">
+  <img src="https://img.shields.io/github/repo-size/zazencodes/tierlist" alt="Repo size">
+  <img src="https://img.shields.io/badge/Claude%20Code-ready-D97757?logo=claude&logoColor=white" alt="Claude Code ready">
+  <img src="https://img.shields.io/badge/Codex-ready-000000?logo=openai&logoColor=white" alt="Codex ready">
+  <a href="https://zazencodes.com/"><img src="https://img.shields.io/badge/made%20by-ZazenCodes-black" alt="Made by ZazenCodes"></a>
+</p>
+
 A drag-and-drop tier list app for macOS that your AI agent can build and edit for you.
 
 Ask Claude Code or Codex to "make a tier list of these use cases", paste a list of links, and the agent writes the list. You rank it by dragging cards between tiers. Click a card to read its summary with its first link open in a built-in browser.

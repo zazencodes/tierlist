@@ -67,7 +67,9 @@ Each list lives in `lists/<slug>/` as `tierlist.json` plus an `images/` folder. 
 
 ## License
 
-[MIT](LICENSE)
+[GPLv3](LICENSE). You can use, modify and share this code, and any version you distribute must also be released under GPLv3.
+
+For a commercial license that allows closed-source use, contact [ZazenCodes](https://zazencodes.com/).
 
 <p align="center">
   <a href="https://zazencodes.com/?utm_source=github&utm_medium=referral&utm_campaign=tierlist">

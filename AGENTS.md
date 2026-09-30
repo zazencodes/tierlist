@@ -10,3 +10,12 @@ Local drag-and-drop tier list app. The CLI is Node 24 with no dependencies; the 
 - `current` (repo root) holds the slug of the list being worked on. CLI edits apply to it; the UI opens it by default.
 - The UI polls the JSON, so CLI edits show up in the open app within ~2s.
 - Skills live in `.agents/skills/` (`.claude/skills` is a symlink to it): `new-tierlist`, `edit-tierlist`, `open-tierlist`.
+
+## Releases
+
+Releases are semver tags (`vMAJOR.MINOR.PATCH`) with a GitHub release; the README's release badge reads the latest one. To release, from a clean `main` that is pushed:
+
+1. `git tag -a vX.Y.Z -m "vX.Y.Z"` and `git push origin vX.Y.Z`.
+2. `gh release create vX.Y.Z --title "vX.Y.Z" --notes "<what changed>"`.
+
+Notes list user-visible changes since the previous tag (`git log <previous-tag>..HEAD --format=%s`). No prebuilt app is attached; users build from source with `./mac/build.sh`.

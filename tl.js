@@ -48,18 +48,31 @@ async function downloadImage(slug, id, url) {
   return `images/${file}`;
 }
 
+// Iconify icon ("set:name") saved as images/<id>.svg. Monochrome icons are tinted light for dark cards.
+async function downloadIcon(slug, id, icon) {
+  const m = /^([a-z0-9-]+):([a-z0-9-]+)$/.exec(icon ?? "");
+  if (!m) die(`icon must look like "set:name", got "${icon}"`);
+  const res = await fetch(`https://api.iconify.design/${m[1]}/${m[2]}.svg?color=%23eeeeee`);
+  const svg = await res.text();
+  if (!res.ok || !svg.startsWith("<svg")) die(`no Iconify icon "${icon}"`);
+  fs.writeFileSync(path.join(listDir(slug), "images", `${id}.svg`), svg);
+}
+
 const commands = {
-  // new "<title>" [--tiers "S,A,B"]
+  // new "<title>" [--style image|text] [--tiers "S,A,B"]
   new(title, ...rest) {
-    if (!title) die("usage: new <title> [--tiers S,A,B,...]");
+    if (!title) die("usage: new <title> [--style image|text] [--tiers S,A,B,...]");
     const slug = slugify(title);
     if (fs.existsSync(listDir(slug))) die(`list "${slug}" already exists`);
     const ti = rest.indexOf("--tiers");
     const tiers = ti >= 0
       ? rest[ti + 1].split(",").map((n, i) => ({ name: n.trim(), color: DEFAULT_TIERS[i % DEFAULT_TIERS.length][1], items: [] }))
       : DEFAULT_TIERS.map(([name, color]) => ({ name, color, items: [] }));
+    const si = rest.indexOf("--style");
+    const style = si >= 0 ? rest[si + 1] : "image";
+    if (!["image", "text"].includes(style)) die(`style must be image or text, got "${style}"`);
     fs.mkdirSync(path.join(listDir(slug), "images"), { recursive: true });
-    save(slug, { title, tiers, unranked: [], items: {} });
+    save(slug, { title, style, tiers, unranked: [], items: {} });
     fs.writeFileSync(CURRENT, slug + "\n");
     console.log(`created and switched to ${slug}`);
   },
@@ -79,6 +92,7 @@ const commands = {
   async add(name, url, tier) {
     if (!name || !url) die("usage: add <name> <imageUrl> [tier]");
     const slug = currentSlug(), data = load(slug);
+    if (data.style !== "image") die("add is for image lists; use add-cards");
     let id = slugify(name);
     if (data.items[id]) die(`item "${id}" already exists`);
     const target = tier ? data.tiers.find((t) => t.name === tier) ?? die(`no tier "${tier}"`) : null;
@@ -87,17 +101,57 @@ const commands = {
     save(slug, data);
     console.log(`added ${id}`);
   },
+  // add-cards < items.json — JSON array of {name, icon?, tag?, summary?, links?: [{label, url}], tier?}
+  async "add-cards"() {
+    const slug = currentSlug(), data = load(slug);
+    if (data.style !== "text") die("add-cards is for text lists; use add");
+    const cards = JSON.parse(fs.readFileSync(0, "utf8"));
+    if (!Array.isArray(cards)) die("expected a JSON array on stdin");
+    for (const { name, icon, tag, summary, links, tier, ...extra } of cards) {
+      if (!name) die("every card needs a name");
+      if (Object.keys(extra).length) die(`unknown fields on "${name}": ${Object.keys(extra).join(", ")}`);
+      const id = slugify(name);
+      if (data.items[id]) die(`item "${id}" already exists`);
+      for (const l of links ?? []) if (!l.label || !l.url) die(`link on "${name}" needs label and url`);
+      const target = tier ? (data.tiers.find((t) => t.name === tier) ?? die(`no tier "${tier}"`)).items : data.unranked;
+      if (icon !== undefined) await downloadIcon(slug, id, icon);
+      data.items[id] = Object.fromEntries(Object.entries({ name, icon, tag, summary, links }).filter(([, v]) => v !== undefined));
+      target.push(id);
+    }
+    save(slug, data);
+    console.log(`added ${cards.length} cards`);
+  },
   async image(ref, url) {
     const slug = currentSlug(), data = load(slug), id = findItem(data, ref);
+    if (data.style !== "image") die("image is for image lists");
     const old = data.items[id].image;
     data.items[id].image = await downloadImage(slug, id, url);
     if (old !== data.items[id].image) fs.rmSync(path.join(listDir(slug), old), { force: true });
     save(slug, data);
     console.log(`updated image for ${id}`);
   },
+  // icon "<item>" set:name — find names with `icons <query>`
+  async icon(ref, icon) {
+    const slug = currentSlug(), data = load(slug), id = findItem(data, ref);
+    if (data.style !== "text") die("icon is for text lists");
+    await downloadIcon(slug, id, icon);
+    data.items[id].icon = icon;
+    save(slug, data);
+    console.log(`${id} icon -> ${icon}`);
+  },
+  // icons <query> [set] — search Iconify
+  async icons(query, set) {
+    if (!query) die("usage: icons <query> [set]");
+    const url = `https://api.iconify.design/search?limit=64&query=${encodeURIComponent(query)}${set ? `&prefix=${set}` : ""}`;
+    const res = await fetch(url);
+    if (!res.ok) die(`Iconify search failed (${res.status})`);
+    const { icons } = await res.json();
+    console.log(icons.length ? icons.join("\n") : "no results");
+  },
   remove(ref) {
     const slug = currentSlug(), data = load(slug), id = findItem(data, ref);
-    fs.rmSync(path.join(listDir(slug), data.items[id].image), { force: true });
+    if (data.items[id].image) fs.rmSync(path.join(listDir(slug), data.items[id].image), { force: true });
+    if (data.items[id].icon) fs.rmSync(path.join(listDir(slug), "images", `${id}.svg`), { force: true });
     detach(data, id);
     delete data.items[id];
     save(slug, data);

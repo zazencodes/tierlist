@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tier List</title>
+<style>
+  :root { --bg: #1a1a1f; --panel: #26262d; --text: #eee; --muted: #999; --tile: 96px; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px system-ui, sans-serif; }
+  header { display: flex; align-items: center; gap: 16px; padding: 14px 20px; }
+  h1 { margin: 0; font-size: 22px; flex: 1; }
+  select { background: var(--panel); color: var(--text); border: 1px solid #444; padding: 6px 8px; border-radius: 6px; }
+  main { padding: 0 20px 40px; }
+  .row { display: flex; min-height: calc(var(--tile) + 4px); border: 1px solid #000; border-bottom: none; background: var(--panel); }
+  .row:last-of-type { border-bottom: 1px solid #000; }
+  .label { width: 100px; flex: none; display: grid; place-items: center; color: #111; font-size: 26px; font-weight: 700; text-align: center; padding: 4px; }
+  .drop { flex: 1; display: flex; flex-wrap: wrap; align-content: flex-start; min-height: calc(var(--tile) + 4px); }
+  .drop.over { background: #33333c; }
+  #pool { margin-top: 20px; border: 1px dashed #555; min-height: calc(var(--tile) + 30px); padding: 4px; background: transparent; }
+  #pool-label { color: var(--muted); margin: 20px 0 0; font-size: 13px; text-transform: uppercase; letter-spacing: .08em; }
+  .item { width: var(--tile); height: var(--tile); margin: 2px; position: relative; cursor: grab; user-select: none; }
+  .item img { width: 100%; height: 100%; object-fit: cover; display: block; pointer-events: none; }
+  .item span { position: absolute; left: 0; right: 0; bottom: 0; background: #000a; font-size: 11px; padding: 2px 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .item.dragging { opacity: .35; }
+</style>
+</head>
+<body>
+<header><h1 id="title"></h1><select id="picker"></select></header>
+<main>
+  <div id="tiers"></div>
+  <p id="pool-label">Unranked</p>
+  <div id="pool" class="drop" data-tier="unranked"></div>
+</main>
+<script>
+let slug, data, raw, dragging = null;
+
+async function init() {
+  const { current, lists } = await (await fetch("/api/lists")).json();
+  slug = new URLSearchParams(location.search).get("list") || current;
+  picker.innerHTML = lists.map((l) => `<option value="${l.slug}" ${l.slug === slug ? "selected" : ""}>${l.title}</option>`).join("");
+  picker.onchange = () => (location.search = "?list=" + picker.value);
+  await refresh();
+  setInterval(() => !dragging && refresh(), 1500); // pick up edits made from chat
+}
+
+async function refresh() {
+  const text = await (await fetch(`/api/list/${slug}`)).text();
+  if (text === raw) return;
+  raw = text;
+  data = JSON.parse(text);
+  render();
+}
+
+function tile(id) {
+  const it = data.items[id], el = document.createElement("div");
+  el.className = "item"; el.draggable = true; el.dataset.id = id; el.title = it.name;
+  el.innerHTML = `<img src="/lists/${slug}/${it.image}" alt=""><span></span>`;
+  el.querySelector("span").textContent = it.name;
+  el.ondragstart = (e) => { dragging = id; el.classList.add("dragging"); e.dataTransfer.effectAllowed = "move"; };
+  el.ondragend = () => { dragging = null; el.classList.remove("dragging"); };
+  return el;
+}
+
+function render() {
+  document.title = title.textContent = data.title;
+  tiers.innerHTML = "";
+  for (const t of data.tiers) {
+    const row = document.createElement("div");
+    row.className = "row";
+    row.innerHTML = `<div class="label" style="background:${t.color}"></div><div class="drop" data-tier=""></div>`;
+    row.querySelector(".label").textContent = t.name;
+    const drop = row.querySelector(".drop");
+    drop.dataset.tier = t.name;
+    t.items.forEach((id) => drop.append(tile(id)));
+    tiers.append(row);
+  }
+  pool.innerHTML = "";
+  data.unranked.forEach((id) => pool.append(tile(id)));
+  document.querySelectorAll(".drop").forEach(wireDrop);
+}
+
+function wireDrop(zone) {
+  zone.ondragover = (e) => { e.preventDefault(); zone.classList.add("over"); };
+  zone.ondragleave = () => zone.classList.remove("over");
+  zone.ondrop = (e) => {
+    e.preventDefault(); zone.classList.remove("over");
+    const id = dragging; if (!id) return;
+    // insert before the tile under the cursor, else at the end
+    const before = [...zone.querySelectorAll(".item")].find((el) => {
+      const r = el.getBoundingClientRect();
+      return e.clientY < r.bottom && (e.clientY < r.top || e.clientX < r.left + r.width / 2);
+    });
+    const lists = [data.unranked, ...data.tiers.map((t) => t.items)];
+    for (const l of lists) { const i = l.indexOf(id); if (i >= 0) l.splice(i, 1); }
+    const target = zone.dataset.tier === "unranked" ? data.unranked : data.tiers.find((t) => t.name === zone.dataset.tier).items;
+    const at = before && before.dataset.id !== id ? target.indexOf(before.dataset.id) : -1;
+    at >= 0 ? target.splice(at, 0, id) : target.push(id);
+    render();
+    raw = JSON.stringify(data, null, 2) + "\n";
+    fetch(`/api/list/${slug}`, { method: "PUT", body: JSON.stringify(data) });
+  };
+}
+
+init();
+</script>
+</body>
+</html>

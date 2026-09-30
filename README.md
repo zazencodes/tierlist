@@ -72,6 +72,8 @@ The repo ships three skills in `.agents/skills/` (`.claude/skills` links to them
 
 Each list lives in `lists/<slug>/` as `tierlist.json` plus an `images/` folder. Delete the folder to delete the list.
 
+Your data is saved locally inside the project folder and never leaves your machine. Git ignores `lists/` and `current` by default, so your lists are not committed or pushed.
+
 ## In the app
 
 - Drag items between tiers. Changes save to `tierlist.json` right away.

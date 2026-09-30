@@ -10,7 +10,9 @@ All commands act on the list named in `current`. Check it with `./tl.js lists` (
 Inspect: `./tl.js show`
 
 Commands (items can be given by id or name):
-- `./tl.js add "<Name>" "<imageUrl>" [tier]`: find the image on the web yourself, as in `new-tierlist`
+- `./tl.js add "<Name>" "<imageUrl>" [tier]`: find the image on the web yourself, as in `new-tierlist`. Image lists only.
+- `./tl.js add-cards < items.json`: for text lists (`"style": "text"`). Same JSON format as in `new-tierlist`. Image lists only..
+- `./tl.js icon "<item>" set:name`: text lists only. Find names with `./tl.js icons <query> [set]` (see `new-tierlist` for good sets).
 - `./tl.js remove "<item>"`
 - `./tl.js rename "<item>" "<New Name>"`
 - `./tl.js image "<item>" "<imageUrl>"`
@@ -19,4 +21,4 @@ Commands (items can be given by id or name):
 - `./tl.js color <tier> "#hex"`
 - `./tl.js title "<New Title>"`
 
-An open browser picks up changes automatically. To delete a whole list, remove `lists/<slug>/`.
+The open app picks up changes automatically. To delete a whole list, remove `lists/<slug>/`.

@@ -5,12 +5,24 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Tier List</title>
 <style>
-  :root { --bg: #1a1a1f; --panel: #26262d; --text: #eee; --muted: #999; --tile: 96px; }
+  :root { --bg: #1a1a1f; --panel: #26262d; --card: #34343d; --text: #eee; --muted: #999; --tile: 96px; --pane-w: 45vw; --accent: #999; }
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--text); font: 15px system-ui, sans-serif; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px -apple-system, sans-serif; display: flex; height: 100vh; overflow: hidden; }
+  body.resizing { cursor: col-resize; user-select: none; }
+  #app { flex: 1; min-width: 0; overflow-y: auto; }
   header { display: flex; align-items: center; gap: 16px; padding: 14px 20px; }
   h1 { margin: 0; font-size: 22px; flex: 1; }
-  select { background: var(--panel); color: var(--text); border: 1px solid #444; padding: 6px 8px; border-radius: 6px; }
+  #picker { position: relative; }
+  #picker-btn { display: flex; align-items: center; gap: 10px; max-width: 280px; padding: 7px 11px 7px 12px; border: 1px solid #444; border-radius: 6px; background: var(--panel); color: var(--text); font: 500 13px -apple-system, sans-serif; cursor: pointer; }
+  #picker-btn span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  #picker-btn svg { width: 10px; height: 6px; flex: none; color: var(--muted); }
+  #picker-btn:hover, #picker.open #picker-btn { border-color: #666; background: #2d2d35; }
+  #picker-menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 10; min-width: 100%; width: max-content; max-width: 360px; max-height: 60vh; overflow-y: auto; padding: 5px; background: var(--panel); border: 1px solid #444; border-radius: 8px; box-shadow: 0 10px 30px #0009; }
+  #picker-menu[hidden] { display: none; }
+  #picker-menu a { display: flex; align-items: center; gap: 8px; padding: 7px 12px 7px 8px; border-radius: 5px; color: var(--text); font-size: 13px; text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #picker-menu a:hover { background: #3a3a44; }
+  #picker-menu a::before { content: ""; width: 14px; flex: none; color: var(--muted); }
+  #picker-menu a.current::before { content: "✓"; color: var(--text); }
   main { padding: 0 20px 40px; }
   .row { display: flex; min-height: calc(var(--tile) + 4px); border: 1px solid #000; border-bottom: none; background: var(--panel); }
   .row:last-of-type { border-bottom: 1px solid #000; }
@@ -18,29 +30,97 @@
   .drop { flex: 1; display: flex; flex-wrap: wrap; align-content: flex-start; min-height: calc(var(--tile) + 4px); }
   .drop.over { background: #33333c; }
   #pool { margin-top: 20px; border: 1px dashed #555; min-height: calc(var(--tile) + 30px); padding: 4px; background: transparent; }
-  #pool-label { color: var(--muted); margin: 20px 0 0; font-size: 13px; text-transform: uppercase; letter-spacing: .08em; }
+  .section-label { color: var(--muted); margin: 20px 0 0; font-size: 13px; text-transform: uppercase; letter-spacing: .08em; }
   .item { width: var(--tile); height: var(--tile); margin: 2px; position: relative; cursor: grab; user-select: none; }
   .item img { width: 100%; height: 100%; object-fit: cover; display: block; pointer-events: none; }
-  .item span { position: absolute; left: 0; right: 0; bottom: 0; background: #000a; font-size: 11px; padding: 2px 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .item:not(.card) span { position: absolute; left: 0; right: 0; bottom: 0; background: #000a; font-size: 11px; padding: 2px 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .item.dragging { opacity: .35; }
+  .card { width: 220px; padding: 8px 10px; background: var(--card); border-radius: 6px; display: flex; align-items: center; gap: 10px; cursor: pointer; transition: background .12s; }
+  .card:hover { background: #3c3c46; }
+  .card.selected { background: #42424d; box-shadow: inset 0 0 0 2px var(--text); }
+  .card img { width: 64px; height: 64px; flex: none; object-fit: contain; }
+  .card .text { display: flex; flex-direction: column; justify-content: space-between; gap: 6px; min-width: 0; }
+  .card b { font-size: 13px; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .tag { align-self: flex-start; font-size: 11px; padding: 1px 7px; border-radius: 10px; background: #4a4a55; color: #ddd; }
+
+  /* Right pane: the selected card on top, the browser below it. The browser itself is a native
+     view the app lays over #slot. */
+  #pane { position: relative; width: var(--pane-w); min-width: 340px; max-width: calc(100vw - 360px); flex: none; display: flex; flex-direction: column; background: var(--panel); border-left: 1px solid #000; }
+  #pane[hidden] { display: none; }
+  #resizer { position: absolute; left: -5px; top: 0; bottom: 0; width: 9px; cursor: col-resize; z-index: 1; }
+  #resizer::after { content: ""; position: absolute; left: 3px; top: 0; bottom: 0; width: 3px; transition: background .15s; }
+  #resizer:hover::after, body.resizing #resizer::after { background: #555; }
+  #detail { position: relative; flex: none; max-height: 55%; overflow-y: auto; padding: 20px 22px 16px; border-top: 4px solid var(--accent); }
+  #pane.no-links #detail { flex: 1; max-height: none; }
+  #pane.no-links #bar, #pane.no-links #slot { display: none; }
+  .icon-btn { flex: none; display: grid; place-items: center; width: 28px; height: 28px; border: none; border-radius: 6px; background: none; color: var(--muted); cursor: pointer; }
+  .icon-btn:hover { background: #3a3a44; color: var(--text); }
+  .icon-btn svg { width: 16px; height: 16px; }
+  #close { position: absolute; top: 12px; right: 12px; }
+  #detail-head { display: flex; align-items: center; gap: 14px; padding-right: 30px; }
+  #detail-head img { width: 56px; height: 56px; flex: none; object-fit: contain; }
+  #detail h2 { margin: 0 0 7px; font-size: 18px; line-height: 1.3; text-wrap: balance; }
+  .chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+  .tier-chip { min-width: 22px; height: 19px; padding: 0 6px; display: grid; place-items: center; border-radius: 4px; background: var(--accent); color: #111; font-size: 12px; font-weight: 700; }
+  .tier-chip.unranked { background: #4a4a55; color: #ddd; font-weight: 500; font-size: 11px; }
+  #summary { margin: 16px 0 0; max-width: 64ch; color: #d2d2da; font-size: 14.5px; line-height: 1.6; text-wrap: pretty; }
+  #detail .section-label { margin: 18px 0 6px; font-size: 11px; }
+  .link { display: flex; align-items: baseline; gap: 12px; width: calc(100% + 20px); margin: 0 -10px; padding: 7px 10px; border: none; border-radius: 6px; background: none; color: var(--text); font: 14px -apple-system, sans-serif; text-align: left; cursor: pointer; }
+  .link:hover { background: #2f2f37; }
+  .link.active { background: var(--card); box-shadow: inset 3px 0 0 var(--accent); }
+  .link-label { flex: 1; min-width: 0; line-height: 1.35; }
+  .link-host { flex: none; color: var(--muted); font-size: 12px; }
+  #bar { position: relative; flex: none; display: flex; align-items: center; gap: 4px; height: 38px; padding: 0 6px 0 14px; background: var(--bg); border-top: 1px solid #000; border-bottom: 1px solid #000; }
+  #bar-url { flex: 1; min-width: 0; overflow: hidden; color: var(--muted); font-size: 12.5px; white-space: nowrap; text-overflow: ellipsis; }
+  #bar-url b { color: var(--text); font-weight: 500; }
+  #progress { position: absolute; left: 0; bottom: -1px; height: 2px; width: 0; background: var(--accent); opacity: 0; transition: width .2s, opacity .4s; }
+  #slot { flex: 1; background: var(--bg); }
 </style>
 </head>
 <body>
-<header><h1 id="title"></h1><select id="picker"></select></header>
+<div id="app">
+<header><h1 id="title"></h1><div id="picker"><button id="picker-btn"><span></span><svg viewBox="0 0 10 6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 1l4 4 4-4"/></svg></button><div id="picker-menu" hidden></div></div></header>
 <main>
   <div id="tiers"></div>
-  <p id="pool-label">Unranked</p>
+  <p class="section-label">Unranked</p>
   <div id="pool" class="drop" data-tier="unranked"></div>
 </main>
+</div>
+<aside id="pane" hidden>
+  <div id="resizer"></div>
+  <section id="detail">
+    <button id="close" class="icon-btn" onclick="closePane()" title="Close (⌘W)"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg></button>
+    <div id="detail-body"></div>
+  </section>
+  <div id="bar">
+    <span id="bar-url"></span>
+    <a id="bar-out" class="icon-btn" target="_blank" title="Open in default browser"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h4v4M13 3L7.5 8.5M11.5 9.5V13H3V4.5h3.5"/></svg></a>
+    <div id="progress"></div>
+  </div>
+  <div id="slot"></div>
+</aside>
 <script>
-let slug, data, raw, dragging = null;
+let slug, data, raw, dragging = null, selected = null, activeUrl = null, lastRect;
+
+const esc = (t) => { const d = document.createElement("div"); d.textContent = t; return d.innerHTML; };
+const host = (url) => new URL(url).hostname.replace(/^www\./, "");
 
 async function init() {
   const { current, lists } = await (await fetch("/api/lists")).json();
   slug = new URLSearchParams(location.search).get("list") || current;
-  picker.innerHTML = lists.map((l) => `<option value="${l.slug}" ${l.slug === slug ? "selected" : ""}>${l.title}</option>`).join("");
-  picker.onchange = () => (location.search = "?list=" + picker.value);
+  const menu = document.getElementById("picker-menu");
+  document.querySelector("#picker-btn span").textContent = lists.find((l) => l.slug === slug).title;
+  menu.innerHTML = lists.map((l) => `<a href="?list=${l.slug}" class="${l.slug === slug ? "current" : ""}">${esc(l.title)}</a>`).join("");
+  document.getElementById("picker-btn").onclick = () => setMenu(menu.hidden);
+  addEventListener("click", (e) => !picker.contains(e.target) && setMenu(false));
+  addEventListener("keydown", (e) => e.key === "Escape" && onEscape());
+  const width = localStorage.getItem("paneWidth");
+  if (width) document.documentElement.style.setProperty("--pane-w", width + "px");
+  new ResizeObserver(syncSlot).observe(slot);
+  addEventListener("resize", syncSlot);
+  wireResizer();
   await refresh();
+  syncSlot();
   setInterval(() => !dragging && refresh(), 1500); // pick up edits made from chat
 }
 
@@ -54,12 +134,116 @@ async function refresh() {
 
 function tile(id) {
   const it = data.items[id], el = document.createElement("div");
-  el.className = "item"; el.draggable = true; el.dataset.id = id; el.title = it.name;
-  el.innerHTML = `<img src="/lists/${slug}/${it.image}" alt=""><span></span>`;
-  el.querySelector("span").textContent = it.name;
+  el.draggable = true; el.dataset.id = id; el.title = it.name;
+  if (data.style === "text") {
+    el.className = "item card" + (id === selected ? " selected" : "");
+    el.innerHTML = (it.icon ? `<img src="/lists/${slug}/images/${id}.svg" alt="">` : "") +
+      `<div class="text"><b></b>${it.tag ? '<span class="tag"></span>' : ""}</div>`;
+    el.querySelector("b").textContent = it.name;
+    if (it.tag) el.querySelector(".tag").textContent = it.tag;
+    el.onclick = () => select(id);
+  } else {
+    el.className = "item";
+    el.innerHTML = `<img src="/lists/${slug}/${it.image}" alt=""><span></span>`;
+    el.querySelector("span").textContent = it.name;
+  }
   el.ondragstart = (e) => { dragging = id; el.classList.add("dragging"); e.dataTransfer.effectAllowed = "move"; };
   el.ondragend = () => { dragging = null; el.classList.remove("dragging"); };
   return el;
+}
+
+// Pane: clicking a card shows it on the right and loads its first link in the browser below.
+function select(id) {
+  if (id === selected) return;
+  selected = id;
+  const first = data.items[id].links?.[0]?.url;
+  if (first) openLink(first);
+  render();
+}
+
+function openLink(url) {
+  activeUrl = url;
+  showUrl(url);
+  webkit.messageHandlers.openLink.postMessage(url);
+  document.querySelectorAll(".link").forEach((b) => b.classList.toggle("active", b.dataset.url === url));
+}
+
+function setMenu(open) {
+  document.getElementById("picker-menu").hidden = !open;
+  picker.classList.toggle("open", open);
+}
+
+// Esc closes the list menu if it's open, else the pane. The app also calls this when the browser has focus.
+function onEscape() {
+  if (!document.getElementById("picker-menu").hidden) setMenu(false);
+  else closePane();
+}
+
+function closePane() {
+  if (!selected) return;
+  selected = activeUrl = null;
+  render();
+}
+
+function renderPane() {
+  if (selected && !data.items[selected]) selected = activeUrl = null; // removed from the CLI
+  pane.hidden = !selected;
+  if (selected) {
+    const it = data.items[selected];
+    const tier = data.tiers.find((t) => t.items.includes(selected));
+    pane.style.setProperty("--accent", tier ? tier.color : "#4a4a55");
+    pane.classList.toggle("no-links", !it.links?.length);
+    document.getElementById("detail-body").innerHTML =
+      `<div id="detail-head">` +
+        (it.icon ? `<img src="/lists/${slug}/images/${selected}.svg" alt="">` : "") +
+        `<div><h2>${esc(it.name)}</h2><div class="chips">` +
+          (tier ? `<span class="tier-chip">${esc(tier.name)}</span>` : `<span class="tier-chip unranked">Unranked</span>`) +
+          (it.tag ? `<span class="tag">${esc(it.tag)}</span>` : "") +
+        `</div></div>` +
+      `</div>` +
+      (it.summary ? `<p id="summary">${esc(it.summary)}</p>` : "") +
+      (it.links?.length ? `<p class="section-label">Links</p>` + it.links.map((l) =>
+        `<button class="link${l.url === activeUrl ? " active" : ""}" data-url="${esc(l.url)}"><span class="link-label">${esc(l.label)}</span><span class="link-host">${esc(host(l.url))}</span></button>`).join("") : "");
+    document.querySelectorAll(".link").forEach((b) => (b.onclick = () => openLink(b.dataset.url)));
+  }
+  syncSlot();
+}
+
+// Tells the app where to draw the browser, or null to hide it.
+function syncSlot() {
+  const r = slot.offsetParent && slot.getBoundingClientRect();
+  const rect = r ? { x: r.left, y: r.top, width: r.width, height: r.height } : null;
+  const key = JSON.stringify(rect);
+  if (key === lastRect) return;
+  lastRect = key;
+  webkit.messageHandlers.paneRect.postMessage(rect);
+}
+
+// Called by the app whenever the browser's URL or load progress changes.
+window.paneState = ({ url, loading, progress }) => {
+  if (url && url !== "about:blank") showUrl(url);
+  progressBar.style.width = (loading ? Math.max(progress, 0.08) : 1) * 100 + "%";
+  progressBar.style.opacity = loading ? 1 : 0;
+};
+const progressBar = document.getElementById("progress");
+
+function showUrl(url) {
+  const u = new URL(url);
+  document.getElementById("bar-url").innerHTML = `<b>${esc(u.hostname.replace(/^www\./, ""))}</b>${esc(u.pathname === "/" ? "" : u.pathname + u.search)}`;
+  document.getElementById("bar-out").href = url;
+}
+
+function wireResizer() {
+  resizer.onpointerdown = (e) => {
+    resizer.setPointerCapture(e.pointerId);
+    document.body.classList.add("resizing");
+    resizer.onpointermove = (e) => document.documentElement.style.setProperty("--pane-w", Math.round(innerWidth - e.clientX) + "px");
+    resizer.onpointerup = () => {
+      resizer.onpointermove = resizer.onpointerup = null;
+      document.body.classList.remove("resizing");
+      localStorage.setItem("paneWidth", Math.round(pane.getBoundingClientRect().width));
+    };
+  };
 }
 
 function render() {
@@ -78,6 +262,7 @@ function render() {
   pool.innerHTML = "";
   data.unranked.forEach((id) => pool.append(tile(id)));
   document.querySelectorAll(".drop").forEach(wireDrop);
+  renderPane();
 }
 
 function wireDrop(zone) {
@@ -98,7 +283,7 @@ function wireDrop(zone) {
     at >= 0 ? target.splice(at, 0, id) : target.push(id);
     render();
     raw = JSON.stringify(data, null, 2) + "\n";
-    fetch(`/api/list/${slug}`, { method: "PUT", body: JSON.stringify(data) });
+    webkit.messageHandlers.save.postMessage({ slug, json: raw });
   };
 }
 
